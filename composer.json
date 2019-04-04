@@ -1,0 +1,30 @@
+{
+    "name": "laravel-test",
+    "type": "library",
+    "description": "",
+    "authors": [
+        {
+            "name": "hedonghong",
+            "email": "hedonghong@globalegrow.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.2.1",
+        "laravel/framework": "v5.7.28"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^7.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Laravel\\Tests\\": "tests",
+            "Laravel\\": "src"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true,
+        "secure-http": false
+    },
+    "minimum-stability": "stable"
+}
