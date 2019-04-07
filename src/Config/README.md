@@ -37,7 +37,7 @@ fastcgi_param  APP_ENV production;
     \Illuminate\Foundation\Bootstrap\RegisterFacades::class,
     #自带和自定义服务提供者加载
     \Illuminate\Foundation\Bootstrap\RegisterProviders::class,
-    #初始化服务提供者们的
+    #执行服务提供者们的boot方法
     \Illuminate\Foundation\Bootstrap\BootProviders::class,
 ```
 > vendor/laravel/framework/src/Illuminate/Foundation/Application.php也提供两个方法给用户设置env文件路径和名称
