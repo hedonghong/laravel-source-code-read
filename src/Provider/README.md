@@ -41,15 +41,17 @@ RouteServiceProvider.php
             });
         }
     }
-    #延迟加载的方式
+    #延迟加载的方式(区别在于框架不会马上执行register()和boot()，在需要服务的时候执行)
     namespace App\Providers;
     
     use Riak\Connection;
     use Illuminate\Support\ServiceProvider;
     use Illuminate\Contracts\Support\DeferrableProvider;
     
-    class RiakServiceProvider extends ServiceProvider implements DeferrableProvider
+    class RiakServiceProvider extends ServiceProvider
     {
+        protected $defer = true;
+        
         /**
          * Register the service provider.
          *
@@ -93,6 +95,16 @@ RouteServiceProvider.php
     // 其它服务提供者
     App\Providers\ComposerServiceProvider::class,
 ],
+
+#6、属性$bindings、$singletons可以实现简单服务注册
+
+#7、父类ServiceProvider的方法when()实现返回laravel事件数组(event),这样可以实现服务提供者在某事件的时候触发。
+
+延迟加载若有 event 事件激活，那么可以在 when 函数中写入事件类，并写入缓存文件的 when 数组中。
+总的来说服务提供者的【注册】包含种方式：
+
+> 1、延迟加载实现when提供事件类，在事件触发注册服务提供者
+> 2、不用延迟加载，实现ServiceProvider，即会在框架启动时注册服务提供者
 
 ```
 
@@ -259,3 +271,73 @@ class RegisterProviders
 #从ProviderRepository类构造方法和load方法看起
 
 ```
+## 3、如何完成延迟加载类型的服务提供者的解析
+
+```php
+
+#从上面可以知道最后把延迟加载的服务提供者设置到了容器的属性中保存了，安装作者的意思是在需要改服务的时候再进行加载
+
+#对于延迟加载类型的服务提供者，我们要到使用时才会去执行它们内部的 register 和 boot 方法。这里我们所说的使用即使需要 解析 它，我们知道解析处理由服务容器完成。
+
+#所以我们需要进入到 Illuminate\Foundation\Application 容器中探索 make 解析的一些细节。
+
+    /**
+     * Resolve the given type from the container. 从容器中解析出给定服务
+     * 
+     * @see https://github.com/laravel/framework/blob/5.6/src/Illuminate/Foundation/Application.php
+     */
+    public function make($abstract, array $parameters = [])
+    {
+        $abstract = $this->getAlias($abstract);
+
+        // 判断这个接口是否为延迟类型的并且没有被解析过，是则去将它加载到容器中。
+        if (isset($this->deferredServices[$abstract]) && ! isset($this->instances[$abstract])) {
+            $this->loadDeferredProvider($abstract);
+        }
+
+        return parent::make($abstract, $parameters);
+    }
+
+    /**
+     * Load the provider for a deferred service. 加载给定延迟加载服务提供者
+     */
+    public function loadDeferredProvider($service)
+    {
+        if (! isset($this->deferredServices[$service])) {
+            return;
+        }
+
+        $provider = $this->deferredServices[$service];
+
+        // 在注册服务提供者之前为了保险起见先删除之前有相同的服务
+        if (! isset($this->loadedProviders[$provider])) {
+            $this->registerDeferredProvider($provider, $service);
+        }
+    }
+
+    /**
+     * Register a deferred provider and service. 去执行服务提供者的注册方法。
+     */
+    public function registerDeferredProvider($provider, $service = null)
+    {
+        // Once the provider that provides the deferred service has been registered we
+        // will remove it from our local list of the deferred services with related
+        // providers so that this container does not try to resolve it out again.
+        if ($service) {
+            unset($this->deferredServices[$service]);
+        }
+
+        // 执行服务提供者注册服务。
+        $this->register($instance = new $provider($this));
+
+        // 执行服务提供者启动服务。可以跟踪下bootProvider方法查看哈~~非常简单了，不再深入
+        if (! $this->booted) {
+            $this->booting(function () use ($instance) {
+                $this->bootProvider($instance);
+            });
+        }
+    }
+
+```
+
+## 4、END！！

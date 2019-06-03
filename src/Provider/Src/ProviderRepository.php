@@ -76,7 +76,7 @@ class ProviderRepository
         // that it has requested. This allows the service provider to defer itself
         // while still getting automatically loaded when a certain event occurs.
         foreach ($manifest['when'] as $provider => $events) {
-            #注册服务提供者的监听事件
+            #注册服务提供者的监听事件(后面会介绍laravel的事件机制)
             $this->registerLoadEvents($provider, $events);
         }
 
@@ -90,8 +90,12 @@ class ProviderRepository
             $this->app->register($provider);
         }
         #注册延迟的服务提供者，
-        #deferred的服务提供者, 一是要设置$defer = true，二是要提供provides()方法返回绑定到容器中服务的名称
+        #deferred的服务提供者, 一是要设置$defer = true (于ServiceProvider的一个属性)，二是要提供provides()方法返回绑定到容器中服务的名称
         $this->app->addDeferredServices($manifest['deferred']);
+        #h好吧，到这里就完成了所有服务者的注册，但是，如果读者思路转得不够快的话，发现延迟加载的服务提供者呢？不注册吗？
+        #其实$this->app->addDeferredServices()只是把要延迟加载的加入到容器的$deferredServices属性中了
+        #具体可以看vendor/laravel/framework/src/Illuminate/Foundation/Application.php的addDeferredServices方法
+        #下面回到本章节的README.md
     }
 
     /**
