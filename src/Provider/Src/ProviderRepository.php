@@ -76,7 +76,7 @@ class ProviderRepository
         // that it has requested. This allows the service provider to defer itself
         // while still getting automatically loaded when a certain event occurs.
         foreach ($manifest['when'] as $provider => $events) {
-            #注册服务提供者的监听事件(后面会介绍laravel的事件机制)
+            #注册服务提供者的监听事件(后面会介绍laravel的事件机制)，用事件激活注册服务提供者
             $this->registerLoadEvents($provider, $events);
         }
 
