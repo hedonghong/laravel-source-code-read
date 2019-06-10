@@ -187,7 +187,7 @@ class Dispatcher implements DispatcherContract
 
     /**
      * Fire an event and call the listeners.
-     *
+     * 事件的触发
      * @param  string|object  $event
      * @param  mixed  $payload
      * @param  bool  $halt
@@ -198,22 +198,25 @@ class Dispatcher implements DispatcherContract
         // When the given "event" is actually an object we will assume it is an event
         // object and use the class as the event name and this event itself as the
         // payload to the handler, which makes object based events quite simple.
+        #parseEventAndPayload函数利用传入参数是事件名还是事件类实例来确定监听类函数的参数
         [$event, $payload] = $this->parseEventAndPayload(
             $event, $payload
         );
 
+        #是否是广播（不是本节重点）
         if ($this->shouldBroadcast($payload)) {
             $this->broadcastEvent($payload[0]);
         }
 
         $responses = [];
-
+        #获取监听者们，并运行
         foreach ($this->getListeners($event) as $listener) {
             $response = $listener($event, $payload);
 
             // If a response is returned from the listener and event halting is enabled
             // we will just return this response, and not call the rest of the event
             // listeners. Otherwise we will add the response on the response list.
+            #触发事件时有一个参数 halt，这个参数如果是 true 的时候，只要有一个监听类返回了结果，那么就会立刻返回
             if ($halt && ! is_null($response)) {
                 return $response;
             }
@@ -221,6 +224,7 @@ class Dispatcher implements DispatcherContract
             // If a boolean false is returned from a listener, we will stop propagating
             // the event to any further listeners down in the chain, else we keep on
             // looping through the listeners and firing every one in our sequence.
+            #如果多个监听者，其中一个返回值是false那么会阻止下一个监听者运行了
             if ($response === false) {
                 break;
             }
@@ -233,13 +237,14 @@ class Dispatcher implements DispatcherContract
 
     /**
      * Parse the given event and payload and prepare them for dispatching.
-     *
+     * 解析出触发的事件和传入的参数
      * @param  mixed  $event
      * @param  mixed  $payload
      * @return array
      */
     protected function parseEventAndPayload($event, $payload)
     {
+        #如果是事件类的实例，那么监听函数的参数就是事件类自身；如果是事件类名，那么监听函数的参数就是触发事件时传入的参数。
         if (is_object($event)) {
             [$payload, $event] = [[$event], get_class($event)];
         }
@@ -249,7 +254,7 @@ class Dispatcher implements DispatcherContract
 
     /**
      * Determine if the payload has a broadcastable event.
-     *
+     * 是否是一个广播事件
      * @param  array  $payload
      * @return bool
      */
@@ -262,7 +267,7 @@ class Dispatcher implements DispatcherContract
 
     /**
      * Check if event should be broadcasted by condition.
-     *
+     * 检查事件是否应在特定情况下进行广播
      * @param  mixed  $event
      * @return bool
      */
@@ -285,7 +290,7 @@ class Dispatcher implements DispatcherContract
 
     /**
      * Get all of the listeners for a given event name.
-     *
+     * 获取事件对于的监听者
      * @param  string  $eventName
      * @return array
      */
@@ -293,12 +298,14 @@ class Dispatcher implements DispatcherContract
     {
         $listeners = $this->listeners[$eventName] ?? [];
 
+        #寻找监听类的时候，也要从通配符监听器中寻找getWildcardListeners
         $listeners = array_merge(
             $listeners,
             $this->wildcardsCache[$eventName] ?? $this->getWildcardListeners($eventName)
         );
 
         return class_exists($eventName, false)
+                    #如果监听类实现自其他类，那么父类也会一并当做监听类返回
                     ? $this->addInterfaceListeners($eventName, $listeners)
                     : $listeners;
     }
@@ -324,13 +331,14 @@ class Dispatcher implements DispatcherContract
 
     /**
      * Add the listeners for the event's interfaces to the given array.
-     *
+     * 如果监听类实现自其他类，那么父类也会一并当做监听类返回
      * @param  string  $eventName
      * @param  array  $listeners
      * @return array
      */
     protected function addInterfaceListeners($eventName, array $listeners = [])
     {
+        #返回指定的类实现的所有接口
         foreach (class_implements($eventName) as $interface) {
             if (isset($this->listeners[$interface])) {
                 foreach ($this->listeners[$interface] as $names) {
@@ -398,11 +406,11 @@ class Dispatcher implements DispatcherContract
         #即在监听者被激活的时候回调用handle方法
         [$class, $method] = $this->parseClassCallable($listener);
 
-        #使用类反射判监听者断是否使用队列
+        #使用类反射判监听者断如果当前监听类是队列的话，会将任务推送给队列
         if ($this->handlerShouldBeQueued($class)) {
             return $this->createQueuedHandlerCallable($class, $method);
         }
-        #如果不是使用队列，用容器获取监听者实例
+        #如果不是队列，用容器获取监听者实例
         return [$this->container->make($class), $method];
     }
 
@@ -466,7 +474,7 @@ class Dispatcher implements DispatcherContract
 
     /**
      * Determine if the event handler wants to be queued.
-     *
+     * 是否要把监听者用队列来触发
      * @param  string  $class
      * @param  array  $arguments
      * @return bool
@@ -482,7 +490,7 @@ class Dispatcher implements DispatcherContract
 
     /**
      * Queue the handler class.
-     *
+     * 监听者的触发推送到队列中去等待触发或者马上触发
      * @param  string  $class
      * @param  string  $method
      * @param  array  $arguments
@@ -497,7 +505,7 @@ class Dispatcher implements DispatcherContract
         );
 
         $queue = $listener->queue ?? null;
-
+        #是否马上执行还是要排队
         isset($listener->delay)
                     ? $connection->laterOn($queue, $listener->delay, $job)
                     : $connection->pushOn($queue, $job);
@@ -505,7 +513,7 @@ class Dispatcher implements DispatcherContract
 
     /**
      * Create the listener and job for a queued listener.
-     *
+     * 创建一个监听者对象给监听队列中
      * @param  string  $class
      * @param  string  $method
      * @param  array  $arguments
@@ -522,7 +530,7 @@ class Dispatcher implements DispatcherContract
 
     /**
      * Propagate listener options to the job.
-     *
+     * 设置监听者在队列中运行的参数
      * @param  mixed  $listener
      * @param  mixed  $job
      * @return mixed
