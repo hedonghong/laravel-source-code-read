@@ -102,6 +102,7 @@ return ComposerAutoloaderInitf98e46180a57e99b3e258e69ac1b8f28::getLoader();
     public function loadClass($class)
     {
         if ($file = $this->findFile($class)) {
+            //写成一个单独的类外方法，防止引入的文件中，有程序员直接写$this/self，让期直接报错，避免错误发生
             includeFile($file);
 
             return true;
